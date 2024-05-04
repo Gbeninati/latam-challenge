@@ -36,12 +36,12 @@ jobs:
             exit 1
           fi
 
-      - name: Remove Test Stage
-        run: sls remove --stage test
-
       - name: Deploy to Prod Stage
         run: |
           sls create custom_domain --stage prod
           sls deploy --stage prod
+
+      - name: Remove Test Stage
+        run: sls remove --stage test
 
 
