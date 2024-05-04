@@ -1,0 +1,90 @@
+service: latam-challenge
+frameworkVersion: '3'
+
+params:
+  prod:
+    # Se asume que existe un secreto con las credenciales en secrets manager
+    config: prod/latam-challenge/credentials
+    enabled_custom_domain : true
+  test:
+    # Se asume que existe un secreto de testing (puede ser el mismo de prod) en secrets manager
+    config: test/latam-challenge/credentials
+    enabled_custom_domain: true
+
+custom:
+  # Se crea un custom domain para stage prod y test. Se asumeque existe certificado
+  customDomain:
+    - http:
+        domainName: customdomain.latam.com
+        stage: prod
+        basePath: ''
+        certificateName: '*.latam.com'
+        createRoute53Record: true
+        createRoute53IPv6Record: false
+        endpointType: 'regional'
+        securityPolicy: tls_1_2
+        apiType: http
+        autoDomain: false
+        enabled: "${param:enabled_custom_domain}"
+    - http:
+        custom:
+          domainName: customdomain-test.latam.com
+          stage: test
+          basePath: ''
+          certificateName: '*.latam.com'
+          createRoute53Record: true
+          createRoute53IPv6Record: false
+          endpointType: 'regional'
+          securityPolicy: tls_1_2
+          apiType: http
+          autoDomain: false
+          enabled: "${param:enabled_custom_domain}"
+
+provider:
+  name: aws
+  runtime: python3.9
+
+functions:
+  getClient:
+    handler: api.get_cient
+    events:
+      - httpApi:
+          path: /getClient
+          method: get
+    # Se setea la variable de entorno CONFIG con el nombre del secreto
+    environment:
+      CONFIG: ${param:config}
+    vpc:
+      # Colocar Ids de SGs creados por terraform
+      securityGroupIds:
+        - sg-db-ingress
+        - sg-latam-challenge
+      # colocar Ids de subnets app priv creadas por terraform
+      subnetIds:
+        - subnet-app-priv-1
+        - subnet-app-priv-2
+        - subnet-app-priv-3
+
+  suscriber:
+    handler: suscriber.lambda_handler
+    # Se setea la variable de entorno CONFIG con el nombre del secreto
+    environment:
+      CONFIG: ${param:config}
+    vpc:
+      # Colocar Ids de SGs creados por terraform
+      securityGroupIds:
+        - sg-db-ingress
+        - sg-latam-challenge
+      # colocar Ids de subnets app priv creadas por terraform
+      subnetIds:
+        - subnet-app-priv-1
+        - subnet-app-priv-2
+        - subnet-app-priv-3
+
+plugins:
+  - serverless-python-requirements
+  - serverless-domain-manager
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
