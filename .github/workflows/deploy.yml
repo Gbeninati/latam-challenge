@@ -1,0 +1,47 @@
+name: Deploy
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+on: workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Deploy to Test Stage
+        run: |
+          sls create custom_domain --stage test
+          sls deploy --stage test
+
+      - name: Test Test Stage
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://customdomain-test.latam.com/getClient?client_id=1)
+          if [ "$response" != "200" ]; then
+            echo "Error: Test stage failed with HTTP status code $response"
+            sls remove --stage test
+            exit 1
+          fi
+
+      - name: Remove Test Stage
+        run: sls remove --stage test
+
+      - name: Deploy to Prod Stage
+        run: |
+          sls create custom_domain --stage prod
+          sls deploy --stage prod
+
+
